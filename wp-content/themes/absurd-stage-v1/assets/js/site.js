@@ -34,53 +34,95 @@
 })();
 
 (() => {
-  const hero = document.querySelector('.hero-media');
-  if (!hero) return;
+  // Decorative film: always render a still if playback is unavailable.
+  const stage = document.querySelector('.hero-film');
+  const video = stage?.querySelector('.hero-frame--video');
+  if (!stage || !video) return;
 
   const mobileQuery = window.matchMedia('(max-width: 800px)');
   const reducedQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-  let loadToken = 0;
+  const dataSaver = () => navigator.connection?.saveData === true;
+  let generation = 0;
+  let deadline = null;
 
-  const quoteUrl = (url) => `url("${String(url).replace(/"/g, '%22')}")`;
-  const selectAssets = () => {
-    const suffix = mobileQuery.matches ? 'Mobile' : 'Desktop';
-    return {
-      scene: hero.dataset[`heroScene${suffix}`] || hero.dataset.heroSceneDesktop,
-      curtain: hero.dataset[`heroCurtain${suffix}`] || hero.dataset.heroCurtainDesktop,
-    };
+  const clearDeadline = () => {
+    if (deadline !== null) window.clearTimeout(deadline);
+    deadline = null;
   };
 
-  const preloadImage = (url) => new Promise((resolve) => {
-    if (!url) { resolve(); return; }
-    const image = new Image();
-    image.onload = image.onerror = resolve;
-    image.src = url;
+  const showStill = () => {
+    ++generation;
+    clearDeadline();
+    video.pause();
+    video.removeAttribute('src');
+    video.load();
+    stage.dataset.state = 'final';
+  };
+
+  const shouldSkip = () =>
+    mobileQuery.matches || reducedQuery.matches || dataSaver() || document.hidden;
+
+  const initialize = () => {
+    if (shouldSkip()) {
+      showStill();
+      return;
+    }
+
+    ++generation;
+    const attempt = generation;
+    clearDeadline();
+    stage.dataset.state = 'poster';
+    video.pause();
+    video.muted = true;
+    video.playsInline = true;
+    video.loop = false;
+
+    const source = video.dataset.src;
+    if (!source || !video.canPlayType('video/mp4')) {
+      showStill();
+      return;
+    }
+
+    const fail = () => {
+      if (attempt === generation) showStill();
+    };
+
+    const play = async () => {
+      if (attempt !== generation) return;
+      if (shouldSkip()) {
+        fail();
+        return;
+      }
+      clearDeadline();
+      try {
+        await video.play();
+        if (attempt === generation) stage.dataset.state = 'playing';
+      } catch {
+        fail();
+      }
+    };
+
+    video.addEventListener('canplay', play, { once: true });
+    video.addEventListener('error', fail, { once: true });
+    deadline = window.setTimeout(fail, 5500);
+    video.src = source;
+    video.preload = 'auto';
+    video.load();
+  };
+
+  video.addEventListener('ended', () => {
+    if (stage.dataset.state === 'playing') stage.dataset.state = 'ended';
   });
 
-  const applyAssets = ({ scene, curtain }) => {
-    if (scene) hero.style.setProperty('--hero-scene-image', quoteUrl(scene));
-    if (curtain) hero.style.setProperty('--hero-curtain-image', quoteUrl(curtain));
-  };
+  reducedQuery.addEventListener?.('change', initialize);
+  mobileQuery.addEventListener?.('change', initialize);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      video.pause();
+    } else if (stage.dataset.state === 'playing' && !shouldSkip()) {
+      video.play().catch(showStill);
+    }
+  });
 
-  const loadHero = () => {
-    const token = ++loadToken;
-    const assets = selectAssets();
-    hero.classList.remove('is-ready');
-    hero.classList.toggle('is-reduced', reducedQuery.matches);
-    applyAssets(assets);
-
-    const timeout = new Promise((resolve) => window.setTimeout(resolve, 1800));
-    Promise.race([
-      Promise.all([preloadImage(assets.scene), preloadImage(assets.curtain)]),
-      timeout,
-    ]).then(() => {
-      if (token !== loadToken) return;
-      hero.classList.add('is-ready');
-      hero.classList.toggle('is-reduced', reducedQuery.matches);
-    });
-  };
-
-  loadHero();
-  mobileQuery.addEventListener?.('change', loadHero);
-  reducedQuery.addEventListener?.('change', loadHero);
+  initialize();
 })();
