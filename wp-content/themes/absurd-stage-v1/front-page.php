@@ -1,12 +1,28 @@
-<?php get_header(); ?>
+<?php
+get_header();
+
+$hero_curtain_desktop = get_template_directory_uri() . '/assets/images/curtain-desktop.webp';
+$hero_curtain_mobile = get_template_directory_uri() . '/assets/images/curtain-mobile.webp';
+$hero_scene_desktop = $hero_curtain_desktop;
+$hero_scene_mobile = $hero_curtain_mobile;
+?>
 <main id="main">
  <section class="hero" aria-labelledby="hero-heading">
-  <div class="hero-media" aria-hidden="true">
-   <picture>
-     <source media="(max-width: 700px)" srcset="<?php echo esc_url(get_template_directory_uri() . '/assets/images/curtain-mobile.webp'); ?>">
-     <img src="<?php echo esc_url(get_template_directory_uri() . '/assets/images/curtain-desktop.webp'); ?>" width="696" height="905" fetchpriority="high" alt="">
-   </picture>
-   <div class="curtain-panels" aria-hidden="true"><span></span><span></span></div>
+  <div
+   class="hero-media"
+   aria-hidden="true"
+   data-hero-scene-desktop="<?php echo esc_url($hero_scene_desktop); ?>"
+   data-hero-scene-mobile="<?php echo esc_url($hero_scene_mobile); ?>"
+   data-hero-curtain-desktop="<?php echo esc_url($hero_curtain_desktop); ?>"
+   data-hero-curtain-mobile="<?php echo esc_url($hero_curtain_mobile); ?>"
+   style="--hero-scene-image:url('<?php echo esc_url($hero_scene_desktop); ?>');--hero-curtain-image:url('<?php echo esc_url($hero_curtain_desktop); ?>');"
+  >
+   <div class="hero-scene"></div>
+   <div class="hero-curtains" aria-hidden="true">
+    <span class="hero-curtain hero-curtain-left"></span>
+    <span class="hero-curtain hero-curtain-right"></span>
+   </div>
+   <div class="hero-loader" aria-hidden="true"></div>
   </div>
   <div class="hero-grid container">
    <div class="hero-content">

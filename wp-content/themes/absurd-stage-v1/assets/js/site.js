@@ -32,3 +32,55 @@
     if (window.innerWidth > 800 && toggle.getAttribute('aria-expanded') === 'true') setOpen(false);
   });
 })();
+
+(() => {
+  const hero = document.querySelector('.hero-media');
+  if (!hero) return;
+
+  const mobileQuery = window.matchMedia('(max-width: 800px)');
+  const reducedQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+  let loadToken = 0;
+
+  const quoteUrl = (url) => `url("${String(url).replace(/"/g, '%22')}")`;
+  const selectAssets = () => {
+    const suffix = mobileQuery.matches ? 'Mobile' : 'Desktop';
+    return {
+      scene: hero.dataset[`heroScene${suffix}`] || hero.dataset.heroSceneDesktop,
+      curtain: hero.dataset[`heroCurtain${suffix}`] || hero.dataset.heroCurtainDesktop,
+    };
+  };
+
+  const preloadImage = (url) => new Promise((resolve) => {
+    if (!url) { resolve(); return; }
+    const image = new Image();
+    image.onload = image.onerror = resolve;
+    image.src = url;
+  });
+
+  const applyAssets = ({ scene, curtain }) => {
+    if (scene) hero.style.setProperty('--hero-scene-image', quoteUrl(scene));
+    if (curtain) hero.style.setProperty('--hero-curtain-image', quoteUrl(curtain));
+  };
+
+  const loadHero = () => {
+    const token = ++loadToken;
+    const assets = selectAssets();
+    hero.classList.remove('is-ready');
+    hero.classList.toggle('is-reduced', reducedQuery.matches);
+    applyAssets(assets);
+
+    const timeout = new Promise((resolve) => window.setTimeout(resolve, 1800));
+    Promise.race([
+      Promise.all([preloadImage(assets.scene), preloadImage(assets.curtain)]),
+      timeout,
+    ]).then(() => {
+      if (token !== loadToken) return;
+      hero.classList.add('is-ready');
+      hero.classList.toggle('is-reduced', reducedQuery.matches);
+    });
+  };
+
+  loadHero();
+  mobileQuery.addEventListener?.('change', loadHero);
+  reducedQuery.addEventListener?.('change', loadHero);
+})();
