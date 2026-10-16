@@ -2,8 +2,8 @@
 get_header();
 
 // Provisional cinematic variant for local comparison, not a client-approved video.
-// To compare the second PixVerse draft, change ONLY the filename here.
-$hero_video = get_template_directory_uri() . '/assets/images/PixVerse_V6_Image_Text_540P_Heavy_burgundy_vel.mp4';
+// Selected by the owner for local preview: second PixVerse curtain transition video.
+$hero_video = get_template_directory_uri() . '/assets/images/PixVerse_V6_Transition_540P_The_camera_slowly_.mp4';
 $hero_start = get_template_directory_uri() . '/assets/images/hero-start16x9.png';
 $hero_final = get_template_directory_uri() . '/assets/images/hero16x9.png';
 $hero_mobile = get_template_directory_uri() . '/assets/images/curtain-mobile.webp';
