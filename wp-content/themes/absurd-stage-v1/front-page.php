@@ -1,28 +1,29 @@
 <?php
 get_header();
 
-$hero_curtain_desktop = get_template_directory_uri() . '/assets/images/curtain-desktop.webp';
-$hero_curtain_mobile = get_template_directory_uri() . '/assets/images/curtain-mobile.webp';
-$hero_scene_desktop = $hero_curtain_desktop;
-$hero_scene_mobile = $hero_curtain_mobile;
+// Provisional cinematic variant for local comparison, not a client-approved video.
+// To compare the second PixVerse draft, change ONLY the filename here.
+$hero_video = get_template_directory_uri() . '/assets/images/PixVerse_V6_Image_Text_540P_Heavy_burgundy_vel.mp4';
+$hero_start = get_template_directory_uri() . '/assets/images/hero-start16x9.png';
+$hero_final = get_template_directory_uri() . '/assets/images/hero16x9.png';
+$hero_mobile = get_template_directory_uri() . '/assets/images/curtain-mobile.webp';
 ?>
 <main id="main">
  <section class="hero" aria-labelledby="hero-heading">
-  <div
-   class="hero-media"
-   aria-hidden="true"
-   data-hero-scene-desktop="<?php echo esc_url($hero_scene_desktop); ?>"
-   data-hero-scene-mobile="<?php echo esc_url($hero_scene_mobile); ?>"
-   data-hero-curtain-desktop="<?php echo esc_url($hero_curtain_desktop); ?>"
-   data-hero-curtain-mobile="<?php echo esc_url($hero_curtain_mobile); ?>"
-   style="--hero-scene-image:url('<?php echo esc_url($hero_scene_desktop); ?>');--hero-curtain-image:url('<?php echo esc_url($hero_curtain_desktop); ?>');"
-  >
-   <div class="hero-scene"></div>
-   <div class="hero-curtains" aria-hidden="true">
-    <span class="hero-curtain hero-curtain-left"></span>
-    <span class="hero-curtain hero-curtain-right"></span>
+  <div class="hero-media" aria-hidden="true">
+   <div class="hero-film" data-state="poster">
+    <picture class="hero-frame hero-frame--final">
+     <source media="(max-width: 800px)" srcset="<?php echo esc_url($hero_mobile); ?>">
+     <img src="<?php echo esc_url($hero_final); ?>" alt="" decoding="async">
+    </picture>
+    <video class="hero-frame hero-frame--video" aria-hidden="true"
+      muted playsinline disablepictureinpicture preload="none"
+      poster="<?php echo esc_url($hero_start); ?>"
+      data-src="<?php echo esc_url($hero_video); ?>"></video>
+    <img class="hero-frame hero-frame--initial"
+      src="<?php echo esc_url($hero_start); ?>" alt="" decoding="async"
+      fetchpriority="high">
    </div>
-   <div class="hero-loader" aria-hidden="true"></div>
   </div>
   <div class="hero-grid container">
    <div class="hero-content">
