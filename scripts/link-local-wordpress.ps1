@@ -55,7 +55,7 @@ foreach ($item in $entries) {
     $item | Add-Member -NotePropertyName Source -NotePropertyValue $source -Force
     $item | Add-Member -NotePropertyName Target -NotePropertyValue $target -Force
 
-    if (Canonical $source -ieq Canonical $target) {
+    if ((Canonical $source) -ieq (Canonical $target)) {
         $item | Add-Member -NotePropertyName Status -NotePropertyValue 'ALREADY_SHARED' -Force
     } else {
         $targetItem = Get-Item -LiteralPath $target -Force
@@ -112,11 +112,13 @@ try {
     }
 } catch {
     Write-Warning "Linking failed: $($_.Exception.Message). Attempting to restore original local code."
-    foreach ($item in @($linked | Select-Object -Reverse)) {
-        # rmdir through cmd removes a junction, never the directory contents it points to.
+    for ($i = $linked.Count - 1; $i -ge 0; $i--) {
+        $item = $linked[$i]
+        # cmd rmdir deletes the junction itself, not the code it points to.
         & cmd.exe /c "rmdir `"$($item.Target)`""
     }
-    foreach ($move in @($moved | Select-Object -Reverse)) {
+    for ($i = $moved.Count - 1; $i -ge 0; $i--) {
+        $move = $moved[$i]
         if (-not (Test-Path -LiteralPath $move.Item.Target) -and (Test-Path -LiteralPath $move.Backup)) {
             Move-Item -LiteralPath $move.Backup -Destination $move.Item.Target
         }
