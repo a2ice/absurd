@@ -1,6 +1,6 @@
 # A2ice «АБСУРД» — единый локальный код и dev CI/CD
 
-**Дата проверки:** 2026-10-17. **Актуальный статус:** локальный WordPress на OSP6 с NTFS junction проверен (frontend/CSS Ctrl+S/admin); WordPress 7.1.3 установлен на dev `absurd.a2ice.ru` (HTTPS login/dashboard проверены скриншотами); FTPS-доступ ограниченного пользователя и manual dry-run **проверены (PASS после повторной попытки)**; реальная публикация и автоматический деплой **ещё не выполнены/не включены**, независимый dev E2E пока не выполнен. Исторические шаги ниже могут описывать предыдущие состояния.
+**Дата проверки:** 2026-10-17. **Актуальный статус:** локальный WordPress на OSP6 с NTFS junction проверен (frontend/CSS Ctrl+S/admin); WordPress 7.1.3 установлен на dev `absurd.a2ice.ru` (HTTPS login/dashboard проверены скриншотами); FTPS-доступ ограниченного пользователя и manual dry-run **проверены (PASS после повторной попытки)**; реальная публикация выполнена **только частично — тема загружена, плагин не подтверждён**; автоматический деплой **не включён**, независимый dev E2E пока не выполнен. Исторические шаги ниже могут описывать предыдущие состояния.
 
 ## Единственный источник исходного кода
 
@@ -49,7 +49,7 @@ git status --short
 | Environment | URL | Фактически установлено |
 |---|---|---|
 | Local | `http://absurdtheater-wp.local/` | WordPress 7.1.3, OSP6 PHP 8.4 без Nginx для проекта, оба NTFS junction PASS, Ctrl+S→CSS PASS, wp-admin PASS |
-| Dev | `https://absurd.a2ice.ru/` | WordPress 7.1.3 установлен на отдельной БД; HTTPS login/dashboard PASS по скриншотам; кастомная тема/плагин ещё не развёрнуты через FTPS |
+| Dev | `https://absurd.a2ice.ru/` | WordPress 7.1.3 с отдельной БД, HTTPS login/dashboard PASS; **тема выгружена FTPS по успешному логу run #39047942016, плагин НЕ выгружен полностью**, активация и независимый E2E не подтверждены |
 | Future production | `https://theaterabsurd.ru/` | Домен и хостинг ещё не подтверждены |
 | Historical static demo | `https://absurdtheater.a2ice.ru/` | Отдельный существующий сайт; не изменять |
 
@@ -109,7 +109,15 @@ Repository **Variables**:
 - Первый ручной workflow-dispatch `main`, `dry_run=true`: [run #39047259724](https://github.com/a2ice/absurd/actions/runs/39047259724). Валидация PASS; первый FTPS connect получил `ETIMEDOUT` IPv4 TCP/21, `ENETUNREACH` IPv6 — до TLS/аутентификации.
 - Однократный диагностический GitHub Actions [run #39047497249](https://github.com/a2ice/absurd/actions/runs/39047497249): с другого GitHub-hosted runner TCP/21 **доступен**, 443 **доступен**, 22 **не отвечает**. Диагностический [PR #8](https://github.com/a2ice/absurd/pull/8) закрыт **без merge**, основной workflow не изменялся.
 - Повторно запущен только упавший job исходного run #39047259724. Оба FTPS dry-run шага **PASS**: тема — 19 файлов/папок (4.59 MB), плагин — 3 файла (34.6 kB), удалений — 0. Режим **dry_run=true**, файловая публикация **НЕ производилась**. Возможна нестабильность TCP/21 между исходящими IP GitHub-hosted runners и CISHOST, одиночный PASS не гарантирует стабильность последующих вызовов.
-- **Следующий этап:** первый ручной `workflow_dispatch` по `main`, `dry_run=false` (при `DEV_DEPLOY_ENABLED=false`) → проверить реальный WordPress dev → независимый E2E PASS → только затем включить авто-push. Не раскрывать значения Secrets и не заменять FTPS протокол незашифрованным FTP ради обхода ошибки.
+- **Исторический этап (выполнен частично):** первый ручной `workflow_dispatch` по `main`, `dry_run=false` проведён, но итог **FAIL** из-за нестабильного FTPS; см. раздел ниже. `DEV_DEPLOY_ENABLED=false`. Не раскрывать значения Secrets и не заменять FTPS протокол незашифрованным FTP ради обхода ошибки.
+
+### Первый настоящий deploy — частичный FAIL; стабилизация FTPS (17.10.2026)
+
+- [Workflow #39047942016](https://github.com/a2ice/absurd/actions/runs/39047942016), `main`, `dry_run=false`, `validate=PASS`: начальная попытка прервалась ещё до FTP/TLS auth с `ETIMEDOUT 31.41.40.19:21`, IPv6 `ENETUNREACH`.
+- Ручной `rerun failed jobs`: **тема успешно передана** (19 объектов, около 4.59 MB, 0 удалений; в логе `Sync complete` и сохранение состояния), однако шаг передачи плагина оборвался с `ECONNRESET (data socket)` на `absurdtheater-core.php`. Не считать плагин опубликованным и не включать его в WordPress до фактической проверки.
+- Ещё один ограниченный повтор завершился `ETIMEDOUT` FTP TCP/21 на шаге темы; плагин не выполнялся. **Итоговый run FAIL; полного первого деплоя нет**. Не запускать бесконечные ручные повторы.
+- Для устойчивости подготовлен/принят [PR #10](https://github.com/a2ice/absurd/pull/10), commit `8f86d84d8f4e16d1c0e8fbaf41fe6b8033df1658`: GitHub-hosted FTPS использует IPv4-first DNS и до двух последовательных попыток на каждый шаг с backoff 15с; второй сбой **завершает job с ошибкой**, строгий FTPS TLS и защита путей сохранены. CI [run #39048617799](https://github.com/a2ice/absurd/actions/runs/39048617799) PASS на PR (это **только syntax/lint**, не новое доказательство передачи файлов).
+- Следующий шаг: **один** manual workflow-dispatch на актуальной `main`, `dry_run=false` и `DEV_DEPLOY_ENABLED=false`. Если транспортные ошибки повторяются — открыть обращение CISHOST по журналам `ETIMEDOUT TCP/21` и `ECONNRESET FTPS data socket` от GitHub-hosted Azure runner; запросить проверку FTP passive ranges и сетевого ограничения без отключения TLS или расширения FTP-доступа. После полного PASS — проверить через ISPmanager точные файлы на FTP, активировать тему/плагин, независимый E2E; только затем авто-push.
 
 ### Порядок первого запуска
 
