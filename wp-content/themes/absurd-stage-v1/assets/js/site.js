@@ -85,7 +85,7 @@
     video.muted = true;
     video.playsInline = true;
     video.loop = false;
-    stage.dataset.state = 'loading'; // Spinner overlays the existing poster.
+    stage.dataset.state = 'loading'; // Spinner stays over black, not the mismatched fallback image.
 
     const active = () => attempt === generation;
     const fail = () => { if (active()) showStill(); };
