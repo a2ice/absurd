@@ -65,6 +65,21 @@ jobs:
                      -type f -name '*.js' -print0)
           echo 'JS syntax: PASS'
 
+      # Read-only one-off network reachability probe to triage FTPS timeout.
+      # Restricted to this diagnostic PR; no credentials, uploads or deployments.
+      - name: Diagnose CISHOST port reachability (one-off)
+        if: github.event_name == 'pull_request' && github.head_ref == 'diagnostics/cishost-from-actions-20261017'
+        shell: bash
+        run: |
+          echo "CISHOST DNS v4:"
+          getent ahostsv4 s19.cishost.ru | head -n 3 || true
+          for target in "s19.cishost.ru 21" "s19.cishost.ru 22" "absurd.a2ice.ru 443"; do
+            read -r host port <<< "$target"
+            echo "=== Probe $host:$port via IPv4 ==="
+            nc -4 -vz -w 7 "$host" "$port" 2>&1 || echo "TCP connection unavailable ($host:$port)"
+          done
+          echo "Read-only probe finished (not a deployment)."
+
   deploy_dev:
     name: FTPS deploy theme and plugin to absurd.a2ice.ru
     needs: validate
