@@ -3,7 +3,7 @@ Theme Name: ABSURD — Impossible Curtain (Local V1)
 Theme URI: https://a2ice.ru/
 Author: A2ice
 Description: Локальный дизайнерский прототип театра АБСУРД, не утвержденный клиентом.
-Version: 0.1.0
+Version: 0.1.1
 Requires at least: 6.6
 Requires PHP: 8.2
 Text Domain: absurd-stage
@@ -172,7 +172,9 @@ img{display:block;max-width:100%}
  .hero{min-height:850px;display:block}
  .hero-media{inset:72px 0 auto;height:500px;width:100%;opacity:.95}
  .hero-media:before{background:linear-gradient(0deg,var(--bg) 0%, transparent 28%,transparent 80%)}
- .hero-frame--initial,.hero-frame--video{display:none}
+ /* Keep the mobile art as a progressive fallback beneath inline video. */
+ .hero-frame--initial{display:none}
+ .hero-frame--video{display:block;object-fit:cover;object-position:center top}
  .hero-frame--final{opacity:1}
  .hero-frame--final img{object-fit:contain;object-position:center top}
  .hero-grid{min-height:0;display:block;padding-top:565px;padding-bottom:95px}

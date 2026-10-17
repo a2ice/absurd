@@ -39,7 +39,6 @@
   const video = stage?.querySelector('.hero-frame--video');
   if (!stage || !video) return;
 
-  const mobileQuery = window.matchMedia('(max-width: 800px)');
   const reducedQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
   const dataSaver = () => navigator.connection?.saveData === true;
   let generation = 0;
@@ -59,8 +58,10 @@
     stage.dataset.state = 'final';
   };
 
+  // Mobile is allowed: muted + playsinline playback is still optional if the
+  // browser blocks autoplay, a visitor saves data, or reduced motion is set.
   const shouldSkip = () =>
-    mobileQuery.matches || reducedQuery.matches || dataSaver() || document.hidden;
+    reducedQuery.matches || dataSaver() || document.hidden;
 
   const initialize = () => {
     if (shouldSkip()) {
@@ -115,7 +116,6 @@
   });
 
   reducedQuery.addEventListener?.('change', initialize);
-  mobileQuery.addEventListener?.('change', initialize);
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
       video.pause();
