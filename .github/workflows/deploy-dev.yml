@@ -71,6 +71,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: development
+    # Avoid racing unreachable AAAA records on the hosted runner.
+    env:
+      NODE_OPTIONS: --dns-result-order=ipv4first
     if: >-
       github.ref == 'refs/heads/main'
       && vars.DEV_WORDPRESS_READY == 'true'
@@ -108,7 +111,9 @@ jobs:
             exit 1
           fi
 
-      - name: Deploy custom theme (FTPS)
+      - name: Deploy custom theme (FTPS) — first attempt
+        id: theme_first
+        continue-on-error: true
         uses: SamKirkland/FTP-Deploy-Action@110f9186c050f71550953127052e77650219c287 # v4.4.0
         with:
           server: ${{ secrets.DEV_FTP_HOST }}
@@ -131,7 +136,66 @@ jobs:
             **/tests/**
             **/.DS_Store
 
-      - name: Deploy custom content plugin (FTPS)
+      - name: Brief backoff before retrying theme
+        if: steps.theme_first.outcome == 'failure'
+        shell: bash
+        run: sleep 15
+
+      - name: Deploy custom theme (FTPS) — retry after transient FTP error
+        if: steps.theme_first.outcome == 'failure'
+        uses: SamKirkland/FTP-Deploy-Action@110f9186c050f71550953127052e77650219c287 # v4.4.0
+        with:
+          server: ${{ secrets.DEV_FTP_HOST }}
+          username: ${{ secrets.DEV_FTP_USER }}
+          password: ${{ secrets.DEV_FTP_PASSWORD }}
+          protocol: ftps
+          port: 21
+          security: strict
+          timeout: 120000
+          local-dir: ./wp-content/themes/absurd-stage-v1/
+          server-dir: ${{ secrets.DEV_THEME_FTP_DIR }}
+          state-name: .absurd-dev-theme-ftps-state.json
+          dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
+          dangerous-clean-slate: false
+          log-level: standard
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            **/tests/**
+            **/.DS_Store
+
+      - name: Deploy custom content plugin (FTPS) — first attempt
+        id: plugin_first
+        continue-on-error: true
+        uses: SamKirkland/FTP-Deploy-Action@110f9186c050f71550953127052e77650219c287 # v4.4.0
+        with:
+          server: ${{ secrets.DEV_FTP_HOST }}
+          username: ${{ secrets.DEV_FTP_USER }}
+          password: ${{ secrets.DEV_FTP_PASSWORD }}
+          protocol: ftps
+          port: 21
+          security: strict
+          timeout: 120000
+          local-dir: ./wp-content/plugins/absurdtheater-core/
+          server-dir: ${{ secrets.DEV_PLUGIN_FTP_DIR }}
+          state-name: .absurd-dev-plugin-ftps-state.json
+          dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
+          dangerous-clean-slate: false
+          log-level: standard
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            **/tests/**
+            **/.DS_Store
+      - name: Brief backoff before retrying plugin
+        if: steps.plugin_first.outcome == 'failure'
+        shell: bash
+        run: sleep 15
+
+      - name: Deploy custom content plugin (FTPS) — retry after transient FTP error
+        if: steps.plugin_first.outcome == 'failure'
         uses: SamKirkland/FTP-Deploy-Action@110f9186c050f71550953127052e77650219c287 # v4.4.0
         with:
           server: ${{ secrets.DEV_FTP_HOST }}
