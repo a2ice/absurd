@@ -44,7 +44,7 @@ jobs:
               fingerprint='network/TLS error or inaccessible'
               code='not reachable'
             fi
-            echo "| `$path` | $code | $fingerprint |" >> "$GITHUB_STEP_SUMMARY"
+            printf "| %s | %s | %s |\n" "$path" "$code" "$fingerprint" >> "$GITHUB_STEP_SUMMARY"
             printf '%s: status=%s, fingerprint=%s\n' "$path" "$code" "$fingerprint"
             rm -f "$response"
           done
