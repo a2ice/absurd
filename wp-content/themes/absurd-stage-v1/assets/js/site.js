@@ -34,95 +34,114 @@
 })();
 
 (() => {
-  // Decorative film: always render a still if playback is unavailable.
+  // Decorative autoplay only: the still always remains a valid fallback.
   const stage = document.querySelector('.hero-film');
   const video = stage?.querySelector('.hero-frame--video');
   if (!stage || !video) return;
 
-  const reducedQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-  const dataSaver = () => navigator.connection?.saveData === true;
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const shouldSkip = () =>
+    reducedMotion.matches || navigator.connection?.saveData === true || document.hidden;
+  const maxWaitMs = 1500; // Hard deadline measured from DOMContentLoaded.
   let generation = 0;
   let deadline = null;
+  let listeners = null;
 
-  const clearDeadline = () => {
+  const cancelWaiting = () => {
     if (deadline !== null) window.clearTimeout(deadline);
     deadline = null;
+    listeners?.abort();
+    listeners = null;
   };
 
   const showStill = () => {
-    ++generation;
-    clearDeadline();
+    generation += 1; // Invalidate pending play() promises and late events.
+    cancelWaiting();
     video.pause();
     video.removeAttribute('src');
     video.load();
     stage.dataset.state = 'final';
   };
 
-  // Mobile is allowed: muted + playsinline playback is still optional if the
-  // browser blocks autoplay, a visitor saves data, or reduced motion is set.
-  const shouldSkip = () =>
-    reducedQuery.matches || dataSaver() || document.hidden;
-
-  const initialize = () => {
-    if (shouldSkip()) {
+  const start = (timeLeftMs) => {
+    if (shouldSkip() || timeLeftMs <= 0) {
       showStill();
       return;
     }
-
-    ++generation;
-    const attempt = generation;
-    clearDeadline();
-    stage.dataset.state = 'poster';
-    video.pause();
-    video.muted = true;
-    video.playsInline = true;
-    video.loop = false;
-
     const source = video.dataset.src;
     if (!source || !video.canPlayType('video/mp4')) {
       showStill();
       return;
     }
 
-    const fail = () => {
-      if (attempt === generation) showStill();
-    };
+    generation += 1;
+    const attempt = generation;
+    cancelWaiting();
+    listeners = new AbortController();
+    const { signal } = listeners;
+    let playRequested = false;
 
-    const play = async () => {
-      if (attempt !== generation) return;
-      if (shouldSkip()) {
-        fail();
-        return;
-      }
-      clearDeadline();
+    video.pause();
+    video.muted = true;
+    video.playsInline = true;
+    video.loop = false;
+    stage.dataset.state = 'loading'; // Spinner overlays the existing poster.
+
+    const active = () => attempt === generation;
+    const fail = () => { if (active()) showStill(); };
+    const tryPlay = () => {
+      if (!active() || playRequested) return;
+      if (shouldSkip()) { fail(); return; }
+      playRequested = true;
       try {
-        await video.play();
-        if (attempt === generation) stage.dataset.state = 'playing';
+        Promise.resolve(video.play()).catch(fail);
       } catch {
         fail();
       }
     };
 
-    video.addEventListener('canplay', play, { once: true });
-    video.addEventListener('error', fail, { once: true });
-    deadline = window.setTimeout(fail, 5500);
-    video.src = source;
+    video.addEventListener('loadeddata', tryPlay, { once: true, signal });
+    video.addEventListener('canplay', tryPlay, { once: true, signal });
+    video.addEventListener('playing', () => {
+      if (!active()) return;
+      if (shouldSkip()) { fail(); return; }
+      cancelWaiting();
+      stage.dataset.state = 'playing';
+    }, { signal });
+    video.addEventListener('error', fail, { once: true, signal });
+
+    deadline = window.setTimeout(fail, timeLeftMs);
     video.preload = 'auto';
+    video.src = source;
     video.load();
+    if (video.readyState >= 2) tryPlay();
   };
 
   video.addEventListener('ended', () => {
     if (stage.dataset.state === 'playing') stage.dataset.state = 'ended';
   });
-
-  reducedQuery.addEventListener?.('change', initialize);
+  reducedMotion.addEventListener?.('change', () => {
+    if (reducedMotion.matches && stage.dataset.state !== 'final') showStill();
+  });
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
-      video.pause();
+      if (stage.dataset.state === 'loading') showStill();
+      else video.pause();
     } else if (stage.dataset.state === 'playing' && !shouldSkip()) {
       video.play().catch(showStill);
     }
   });
 
-  initialize();
+  const onDomReady = () => {
+    // Navigation Timing accounts for footer scripts loaded after DOMContentLoaded.
+    const navigation = performance.getEntriesByType?.('navigation')?.[0];
+    const loadedAt = navigation?.domContentLoadedEventEnd;
+    const elapsed = loadedAt > 0 ? Math.max(0, performance.now() - loadedAt) : 0;
+    start(Math.max(0, maxWaitMs - elapsed));
+  };
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', onDomReady, { once: true });
+  } else {
+    onDomReady();
+  }
 })();
