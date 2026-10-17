@@ -15,7 +15,7 @@ $hero_mobile = get_template_directory_uri() . '/assets/images/curtain-mobile.web
      <source media="(max-width: 800px)" srcset="<?php echo esc_url($hero_mobile); ?>">
      <img src="<?php echo esc_url($hero_final); ?>" alt="" decoding="async" fetchpriority="low">
     </picture>
-    <div class="hero-film-loader" aria-hidden="true"><span class="hero-film-loader__spinner"></span><span>Загрузка сцены</span></div>
+    <div class="hero-film-loader" aria-hidden="true"><span class="hero-film-loader__spinner"></span></div>
     <video class="hero-frame hero-frame--video" aria-hidden="true"
       muted playsinline disablepictureinpicture preload="none"
       data-src="<?php echo esc_url($hero_video); ?>"></video>
