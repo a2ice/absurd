@@ -12,6 +12,11 @@ assert.doesNotMatch(template, /poster="<\?php/, 'Avoid flash of mismatched <vide
 assert.match(template, /<noscript><style>[^\n]+\.hero-frame--final\{opacity:1!important\}/, 'Show image without JavaScript');
 assert.match(stylesheet, /\.hero-frame--final\{z-index:0;opacity:0\}/, 'Fallback is hidden while video loads');
 assert.doesNotMatch(stylesheet, /\n \.hero-frame--final\{opacity:1\}/, 'No unconditional mobile fallback image');
+assert.match(template, /class="hero-film-loader" aria-hidden="true"><span class="hero-film-loader__spinner"><\/span><\/div>/, 'Loader contains only the animated circle');
+assert.doesNotMatch(template, /Загрузка сцены|Загрузка видео/, 'No visible loader text');
+assert.match(stylesheet, /\.hero-film-loader__spinner\{[\s\S]*?border:1\.5px solid/, 'Thin circular spinner stroke');
+assert.match(stylesheet, /\.hero-film-loader__spinner\{[\s\S]*?animation:hero-film-spin/, 'Spinner remains animated');
+
 
 
 function createHarness({ reduced = false, saveData = false, elapsed = 0, readyState = 'complete', rejectsPlay = false } = {}) {
