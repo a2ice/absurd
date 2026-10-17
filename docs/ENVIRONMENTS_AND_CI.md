@@ -1,11 +1,11 @@
 # A2ice «АБСУРД» — единый локальный код и dev CI/CD
 
-**Дата:** 2026-10-17. **Статус:** решения подготовлены в feature PR, не внедрены в локальную Windows и не включены на хостинге. Нельзя выдавать этот документ за установленный WordPress на dev или за работающий автодеплой.
+**Дата проверки:** 2026-10-17. **Актуальный статус:** локальный WordPress на OSP6 с NTFS junction проверен (frontend/CSS Ctrl+S/admin); WordPress 7.1.3 установлен на dev `absurd.a2ice.ru` (HTTPS login/dashboard проверены скриншотами); FTPS и автоматический деплой **ещё не настроены/не включены**, независимый dev E2E пока не выполнен. Исторические шаги ниже могут описывать предыдущие состояния.
 
 ## Единственный источник исходного кода
 
 - Репозиторий: https://github.com/a2ice/absurd
-- Windows workspace: `C:\OSP6\home\a2ice\projects\absurd`
+- Канонический Windows workspace (clean local `main`): `C:\OSP6\home\a2ice\projects\absurd-main`. Историческая папка `absurd` сохранена как резерв предыдущей ветки.
 - Редактируемые Git-каталоги: `wp-content/themes/absurd-stage-v1` и `wp-content/plugins/absurdtheater-core`.
 - Текущий установленный WordPress до миграции: `C:\OSP6\home\absurdtheater-wp.local\public`, URL `http://127.0.0.1:8767/`.
 - Важно: в репозитории **папка `wp-content` находится в корне Git**, а не под `public`. Не переносить пути молча.
@@ -48,8 +48,8 @@ git status --short
 
 | Environment | URL | Фактически установлено |
 |---|---|---|
-| Local | `http://127.0.0.1:8767/` | WordPress 7.1.3 ранее проверен; путь старой установки надо перепроверить до junction |
-| Dev | `https://absurd.a2ice.ru/` | **Владелец сообщил о настроенных поддомене и Let's Encrypt; WordPress НЕ подтверждён** |
+| Local | `http://absurdtheater-wp.local/` | WordPress 7.1.3, OSP6 PHP 8.4 без Nginx для проекта, оба NTFS junction PASS, Ctrl+S→CSS PASS, wp-admin PASS |
+| Dev | `https://absurd.a2ice.ru/` | WordPress 7.1.3 установлен на отдельной БД; HTTPS login/dashboard PASS по скриншотам; кастомная тема/плагин ещё не развёрнуты через FTPS |
 | Future production | `https://theaterabsurd.ru/` | Домен и хостинг ещё не подтверждены |
 | Historical static demo | `https://absurdtheater.a2ice.ru/` | Отдельный существующий сайт; не изменять |
 
@@ -68,7 +68,7 @@ git status --short
 
 ## GitHub Actions: main → dev
 
-Workflow: `.github/workflows/deploy-dev.yml` (в текущем PR, автоматически появится после merge).
+Workflow: `.github/workflows/deploy-dev.yml` (находится в `main`; изменения путей на ограниченный FTP root — в отдельном PR, до merge не работают).
 
 - На PR и push в `main`: проверки безопасности tracked files, PHP lint и JS syntax.
 - На каждый push в `main`: **автоматический FTPS deployment** только при `DEV_WORDPRESS_READY=true` и `DEV_DEPLOY_ENABLED=true`.
@@ -77,15 +77,21 @@ Workflow: `.github/workflows/deploy-dev.yml` (в текущем PR, автома
 - State-файлы FTPS изолированы по теме и плагину; `dangerous-clean-slate=false`. Это уменьшает риск очистки иных серверных каталогов, но не заменяет backup.
 - GitHub `development` environment; для него можно настроить ограничение ветки `main`. Не включать ручное approve environment, если требуется полностью автоматическая выкладка.
 
+### Ограничение FTP-пользователя под WordPress dev
+
+В ISPmanager создавать **нового**, отдельного от прочих сайтов пользователя с Home Directory `/www/absurd.a2ice.ru/wp-content` относительно домашнего каталога владельца (`/var/www/user180027/data`). Это ограничивает FTP-доступ только этой веткой WordPress, не даёт FTP-аккаунту доступа к `wp-config.php` в корне сайта. При этом в FTP root остаются `themes/`, `plugins/` и `uploads/`; поэтому использовать отдельные credentials и соблюдать запрет деплоя за пределы двух явных target каталогов. Перед первым деплоем **проверить реальный FTP virtual root после входа**, не полагаться на системный путь.
+
+После merge PR GitHub Action проверяет **строго** относительные к этому FTP-root пути `/themes/absurd-stage-v1/` и `/plugins/absurdtheater-core/`; учётную запись с доступом ко всему хостингу не использовать. Если ISPmanager не позволяет ограничение до `wp-content`, не расширять доступ молча: сначала согласовать альтернативный безопасный вариант.
+
 В репозитории **Settings → Secrets and variables → Actions** указать следующие **Secrets** (значения не присылать в чат):
 
 | Secret | Описание |
 |---|---|
 | `DEV_FTP_HOST` | Подтверждённый FTPS hostname CISHOST |
-| `DEV_FTP_USER` | Выделенный FTP-пользователь с доступом к dev, не всему хостингу |
+| `DEV_FTP_USER` | Выделенный FTP-пользователь, домашний каталог `/www/absurd.a2ice.ru/wp-content` относительно `/var/www/user180027/data`, не корень всех сайтов |
 | `DEV_FTP_PASSWORD` | Пароль FTPS |
-| `DEV_THEME_FTP_DIR` | Путь в FTP, оканчивается строго на `/wp-content/themes/absurd-stage-v1/` |
-| `DEV_PLUGIN_FTP_DIR` | Путь в FTP, оканчивается строго на `/wp-content/plugins/absurdtheater-core/` |
+| `DEV_THEME_FTP_DIR` | После принятия PR об ограниченном FTP root: **ровно** `/themes/absurd-stage-v1/` |
+| `DEV_PLUGIN_FTP_DIR` | После принятия PR об ограниченном FTP root: **ровно** `/plugins/absurdtheater-core/` |
 
 Repository **Variables**:
 
@@ -110,8 +116,8 @@ Repository **Variables**:
 
 ## Что НЕ выполнено и зависит от доступа
 
-- Dev WordPress не обнаружен внешней read-only проверкой стандартных маршрутов (`/wp-login.php` и `/wp-json/` → 404); для окончательного подтверждения нужна ISPmanager-инвентаризация.
-- Не подтверждён FTP document root/доступы и не заведены GitHub Secrets.
-- Workflow **уже слит в main**, GitHub Actions validate PASS, deploy job skipped из-за не включённых flags. Локальный junction script **ещё не применён на Windows**; никакого серверного деплоя нет.
-- `origin/main` **уже включает** собственную тему, плагин и CI workflow (merge PR #2, #4). Локальная ветка `main` ещё должна быть синхронизирована владельцем через `git fetch/switch/pull`; это не подтверждено инструментом.
+- Dev WordPress **установлен** и открывается на HTTPS (доказательства: скриншоты владельца из браузера, wp-login и wp-admin); полные smoke / REST / HTTP→HTTPS / staging authentication ещё не пройдены.
+- В ISPmanager **создан** отдельный FTP аккаунт `user180027_absurd_deploy` с домашней директорией `/var/www/user180027/data/www/absurd.a2ice.ru/wp-content` (скриншот владельца, 17.10.2026). **Подключение FTPS, FTP virtual root/права записи ещё не проверены; GitHub Secrets пока не заданы.**
+- Workflow **уже слит в main**, GitHub Actions validate PASS, deploy job skipped из-за выключенных flags. Локальный junction на Dmitanium был успешно применён; **серверного деплоя всё ещё нет**.
+- `origin/main` **уже включает** собственную тему, плагин и CI workflow (merge PR #2, #4). Локальный worktree `absurd-main` синхронизирован с `origin/main`, статус чистый по предоставленному выводу Git.
 - Не проведён независимый E2E нового dev.

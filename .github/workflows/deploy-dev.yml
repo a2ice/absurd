@@ -81,6 +81,8 @@ jobs:
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
+      # The dedicated FTPS account must be chrooted to the dev site wp-content directory.
+      # Both server-dir values below are absolute paths relative to that FTP virtual root.
       - name: Validate hosting targets and required credentials
         shell: bash
         env:
@@ -97,12 +99,12 @@ jobs:
               exit 1
             fi
           done
-          if [[ "$THEME_DIR" != */wp-content/themes/absurd-stage-v1/ ]]; then
-            echo "Theme target must end in /wp-content/themes/absurd-stage-v1/" >&2
+          if [[ "$THEME_DIR" != "/themes/absurd-stage-v1/" ]]; then
+            echo "FTPS user home must be dev wp-content; theme target must be /themes/absurd-stage-v1/" >&2
             exit 1
           fi
-          if [[ "$PLUGIN_DIR" != */wp-content/plugins/absurdtheater-core/ ]]; then
-            echo "Plugin target must end in /wp-content/plugins/absurdtheater-core/" >&2
+          if [[ "$PLUGIN_DIR" != "/plugins/absurdtheater-core/" ]]; then
+            echo "FTPS user home must be dev wp-content; plugin target must be /plugins/absurdtheater-core/" >&2
             exit 1
           fi
 
