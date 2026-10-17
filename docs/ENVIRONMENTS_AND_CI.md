@@ -1,6 +1,6 @@
 # A2ice «АБСУРД» — единый локальный код и dev CI/CD
 
-**Дата проверки:** 2026-10-17. **Актуальный статус:** локальный WordPress на OSP6 с NTFS junction проверен (frontend/CSS Ctrl+S/admin); WordPress 7.1.3 установлен на dev `absurd.a2ice.ru` (HTTPS login/dashboard проверены скриншотами); FTPS и автоматический деплой **ещё не настроены/не включены**, независимый dev E2E пока не выполнен. Исторические шаги ниже могут описывать предыдущие состояния.
+**Дата проверки:** 2026-10-17. **Актуальный статус:** локальный WordPress на OSP6 с NTFS junction проверен (frontend/CSS Ctrl+S/admin); WordPress 7.1.3 установлен на dev `absurd.a2ice.ru` (HTTPS login/dashboard проверены скриншотами); FTPS-доступ ограниченного пользователя и manual dry-run **проверены (PASS после повторной попытки)**; реальная публикация и автоматический деплой **ещё не выполнены/не включены**, независимый dev E2E пока не выполнен. Исторические шаги ниже могут описывать предыдущие состояния.
 
 ## Единственный источник исходного кода
 
@@ -101,6 +101,15 @@ Repository **Variables**:
 | `DEV_DEPLOY_ENABLED` | `false` | `true` только после успешного ручного dry-run, первого реального тестового deployment и E2E |
 
 Если workflow размещает код не туда, **не менять пути наугад**: проверить FTP virtual root относительно панели ISPmanager. Не раскрывать пароли/секреты в логах.
+
+### Результат первой проверки FTPS — 17.10.2026
+
+- Новый CISHOST FTP пользователь `user180027_absurd_deploy` ограничен домашним каталогом `/var/www/user180027/data/www/absurd.a2ice.ru/wp-content`. FileZilla на Windows показала авторизованную FTPS-сессию и `/` с `languages/`, `plugins/`, `themes/`, `upgrade/`, `uploads/`.
+- GitHub Repository Secrets: `DEV_FTP_HOST`, `DEV_FTP_USER`, `DEV_FTP_PASSWORD`, `DEV_THEME_FTP_DIR`, `DEV_PLUGIN_FTP_DIR` созданы (только имена подтверждены скриншотом). Variables: `DEV_WORDPRESS_READY=true`, **`DEV_DEPLOY_ENABLED=false`**.
+- Первый ручной workflow-dispatch `main`, `dry_run=true`: [run #39047259724](https://github.com/a2ice/absurd/actions/runs/39047259724). Валидация PASS; первый FTPS connect получил `ETIMEDOUT` IPv4 TCP/21, `ENETUNREACH` IPv6 — до TLS/аутентификации.
+- Однократный диагностический GitHub Actions [run #39047497249](https://github.com/a2ice/absurd/actions/runs/39047497249): с другого GitHub-hosted runner TCP/21 **доступен**, 443 **доступен**, 22 **не отвечает**. Диагностический [PR #8](https://github.com/a2ice/absurd/pull/8) закрыт **без merge**, основной workflow не изменялся.
+- Повторно запущен только упавший job исходного run #39047259724. Оба FTPS dry-run шага **PASS**: тема — 19 файлов/папок (4.59 MB), плагин — 3 файла (34.6 kB), удалений — 0. Режим **dry_run=true**, файловая публикация **НЕ производилась**. Возможна нестабильность TCP/21 между исходящими IP GitHub-hosted runners и CISHOST, одиночный PASS не гарантирует стабильность последующих вызовов.
+- **Следующий этап:** первый ручной `workflow_dispatch` по `main`, `dry_run=false` (при `DEV_DEPLOY_ENABLED=false`) → проверить реальный WordPress dev → независимый E2E PASS → только затем включить авто-push. Не раскрывать значения Secrets и не заменять FTPS протокол незашифрованным FTP ради обхода ошибки.
 
 ### Порядок первого запуска
 
