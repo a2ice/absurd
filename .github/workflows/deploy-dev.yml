@@ -72,10 +72,12 @@ jobs:
     timeout-minutes: 30
     environment: development
     if: >-
-      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-      && github.ref == 'refs/heads/main'
-      && vars.DEV_DEPLOY_ENABLED == 'true'
+      github.ref == 'refs/heads/main'
       && vars.DEV_WORDPRESS_READY == 'true'
+      && (
+        github.event_name == 'workflow_dispatch'
+        || (github.event_name == 'push' && vars.DEV_DEPLOY_ENABLED == 'true')
+      )
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
