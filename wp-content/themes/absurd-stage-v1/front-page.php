@@ -4,27 +4,23 @@ get_header();
 // Provisional cinematic variant for local comparison, not a client-approved video.
 // Alternate PixVerse heavy-burgundy video: requested for second dev preview.
 $hero_video = get_template_directory_uri() . '/assets/images/PixVerse_V6_Image_Text_540P_Heavy_burgundy_vel.mp4';
-$hero_start = get_template_directory_uri() . '/assets/images/hero-start16x9.png';
 $hero_final = get_template_directory_uri() . '/assets/images/hero16x9.png';
 $hero_mobile = get_template_directory_uri() . '/assets/images/curtain-mobile.webp';
 ?>
 <main id="main">
  <section class="hero" aria-labelledby="hero-heading">
   <div class="hero-media" aria-hidden="true">
-   <div class="hero-film" data-state="poster">
+   <div class="hero-film" data-state="loading">
     <picture class="hero-frame hero-frame--final">
      <source media="(max-width: 800px)" srcset="<?php echo esc_url($hero_mobile); ?>">
-     <img src="<?php echo esc_url($hero_final); ?>" alt="" decoding="async">
+     <img src="<?php echo esc_url($hero_final); ?>" alt="" decoding="async" fetchpriority="low">
     </picture>
     <div class="hero-film-loader" aria-hidden="true"><span class="hero-film-loader__spinner"></span><span>Загрузка сцены</span></div>
     <video class="hero-frame hero-frame--video" aria-hidden="true"
       muted playsinline disablepictureinpicture preload="none"
-      poster="<?php echo esc_url($hero_start); ?>"
       data-src="<?php echo esc_url($hero_video); ?>"></video>
-    <img class="hero-frame hero-frame--initial"
-      src="<?php echo esc_url($hero_start); ?>" alt="" decoding="async"
-      fetchpriority="high">
    </div>
+   <noscript><style>.hero-film[data-state="loading"] .hero-frame--final{opacity:1!important}.hero-film[data-state="loading"] .hero-film-loader{display:none!important}</style></noscript>
   </div>
   <div class="hero-grid container">
    <div class="hero-content">
