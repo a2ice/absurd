@@ -65,6 +65,10 @@ jobs:
                      -type f -name '*.js' -print0)
           echo 'JS syntax: PASS'
 
+      - name: Test hero video deadline and fallback
+        shell: bash
+        run: node scripts/test-hero-film.cjs
+
   deploy_dev:
     name: FTPS deploy theme and plugin to absurd.a2ice.ru
     needs: validate
