@@ -53,6 +53,7 @@ function createHarness({ reduced = false, saveData = false, elapsed = 0, readySt
     readyState,
     hidden: false,
     querySelector(selector) { return selector === '.hero-film' ? stage : null; },
+    getElementById() { return null; }, // Navigation UI is outside this media-only harness.
     addEventListener(type, callback) { documentEvents.set(type, callback); },
     fire(type) { documentEvents.get(type)?.(); }
   };
