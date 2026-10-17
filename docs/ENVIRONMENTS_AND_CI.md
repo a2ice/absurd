@@ -117,7 +117,7 @@ Repository **Variables**:
 ## Что НЕ выполнено и зависит от доступа
 
 - Dev WordPress **установлен** и открывается на HTTPS (доказательства: скриншоты владельца из браузера, wp-login и wp-admin); полные smoke / REST / HTTP→HTTPS / staging authentication ещё не пройдены.
-- Отдельный FTPS-аккаунт и GitHub Secrets пока не созданы; его FTP virtual root/запись файлов пока не проверены.
+- В ISPmanager **создан** отдельный FTP аккаунт `user180027_absurd_deploy` с домашней директорией `/var/www/user180027/data/www/absurd.a2ice.ru/wp-content` (скриншот владельца, 17.10.2026). **Подключение FTPS, FTP virtual root/права записи ещё не проверены; GitHub Secrets пока не заданы.**
 - Workflow **уже слит в main**, GitHub Actions validate PASS, deploy job skipped из-за выключенных flags. Локальный junction на Dmitanium был успешно применён; **серверного деплоя всё ещё нет**.
 - `origin/main` **уже включает** собственную тему, плагин и CI workflow (merge PR #2, #4). Локальный worktree `absurd-main` синхронизирован с `origin/main`, статус чистый по предоставленному выводу Git.
 - Не проведён независимый E2E нового dev.
