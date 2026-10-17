@@ -1,0 +1,153 @@
+name: Validate and deploy WordPress to dev
+
+on:
+  pull_request:
+    branches: [main, chore/unified-local-workspace]
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Preview FTPS changes without uploading"
+        type: boolean
+        required: true
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: absurd-dev-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate custom WordPress code
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Check expected code and disallowed tracked files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f wp-content/themes/absurd-stage-v1/style.css
+          test -f wp-content/themes/absurd-stage-v1/functions.php
+          test -f wp-content/plugins/absurdtheater-core/absurdtheater-core.php
+          if git ls-files | grep -Ei '(^|/)(wp-config\.php|\.env($|\.)|wp-admin/|wp-includes/|uploads/|cache/|backup[s]?/|.*\.(sql|sqlite|pem|key|p12|pfx)$)'; then
+            echo 'Unsafe tracked file detected: refusing to deploy' >&2
+            exit 1
+          fi
+          if find wp-content/themes/absurd-stage-v1 wp-content/plugins/absurdtheater-core \
+            -type f -size +50M -print -quit | grep -q .; then
+            echo 'Single deploy asset exceeds 50 MB' >&2
+            exit 1
+          fi
+
+      - name: Lint PHP
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -v
+          while IFS= read -r -d '' file; do php -l "$file" >/dev/null; done \
+            < <(find wp-content/themes/absurd-stage-v1 wp-content/plugins/absurdtheater-core \
+                     -type f -name '*.php' -print0)
+          echo 'PHP syntax: PASS'
+
+      - name: Check standalone JavaScript syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --version
+          while IFS= read -r -d '' file; do node --check "$file"; done \
+            < <(find wp-content/themes/absurd-stage-v1 wp-content/plugins/absurdtheater-core \
+                     -type f -name '*.js' -print0)
+          echo 'JS syntax: PASS'
+
+  deploy_dev:
+    name: FTPS deploy theme and plugin to absurd.a2ice.ru
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: development
+    if: >-
+      github.ref == 'refs/heads/main'
+      && vars.DEV_WORDPRESS_READY == 'true'
+      && (
+        github.event_name == 'workflow_dispatch'
+        || (github.event_name == 'push' && vars.DEV_DEPLOY_ENABLED == 'true')
+      )
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Validate hosting targets and required credentials
+        shell: bash
+        env:
+          FTP_HOST: ${{ secrets.DEV_FTP_HOST }}
+          FTP_USER: ${{ secrets.DEV_FTP_USER }}
+          FTP_PASSWORD: ${{ secrets.DEV_FTP_PASSWORD }}
+          THEME_DIR: ${{ secrets.DEV_THEME_FTP_DIR }}
+          PLUGIN_DIR: ${{ secrets.DEV_PLUGIN_FTP_DIR }}
+        run: |
+          set -euo pipefail
+          for key in FTP_HOST FTP_USER FTP_PASSWORD THEME_DIR PLUGIN_DIR; do
+            if [[ -z "${!key}" ]]; then
+              echo "Missing required secret: $key" >&2
+              exit 1
+            fi
+          done
+          if [[ "$THEME_DIR" != */wp-content/themes/absurd-stage-v1/ ]]; then
+            echo "Theme target must end in /wp-content/themes/absurd-stage-v1/" >&2
+            exit 1
+          fi
+          if [[ "$PLUGIN_DIR" != */wp-content/plugins/absurdtheater-core/ ]]; then
+            echo "Plugin target must end in /wp-content/plugins/absurdtheater-core/" >&2
+            exit 1
+          fi
+
+      - name: Deploy custom theme (FTPS)
+        uses: SamKirkland/FTP-Deploy-Action@110f9186c050f71550953127052e77650219c287 # v4.4.0
+        with:
+          server: ${{ secrets.DEV_FTP_HOST }}
+          username: ${{ secrets.DEV_FTP_USER }}
+          password: ${{ secrets.DEV_FTP_PASSWORD }}
+          protocol: ftps
+          port: 21
+          security: strict
+          timeout: 120000
+          local-dir: ./wp-content/themes/absurd-stage-v1/
+          server-dir: ${{ secrets.DEV_THEME_FTP_DIR }}
+          state-name: .absurd-dev-theme-ftps-state.json
+          dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
+          dangerous-clean-slate: false
+          log-level: standard
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            **/tests/**
+            **/.DS_Store
+
+      - name: Deploy custom content plugin (FTPS)
+        uses: SamKirkland/FTP-Deploy-Action@110f9186c050f71550953127052e77650219c287 # v4.4.0
+        with:
+          server: ${{ secrets.DEV_FTP_HOST }}
+          username: ${{ secrets.DEV_FTP_USER }}
+          password: ${{ secrets.DEV_FTP_PASSWORD }}
+          protocol: ftps
+          port: 21
+          security: strict
+          timeout: 120000
+          local-dir: ./wp-content/plugins/absurdtheater-core/
+          server-dir: ${{ secrets.DEV_PLUGIN_FTP_DIR }}
+          state-name: .absurd-dev-plugin-ftps-state.json
+          dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
+          dangerous-clean-slate: false
+          log-level: standard
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            **/tests/**
+            **/.DS_Store
