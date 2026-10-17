@@ -1,0 +1,53 @@
+name: Probe dev WordPress (read-only)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Inspect HTTPS and WordPress fingerprints, without authentication
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://absurd.a2ice.ru'
+          echo '### Read-only absurd.a2ice.ru probe' >> "$GITHUB_STEP_SUMMARY"
+          echo '| HTTPS endpoint | HTTP code | WP fingerprint |' >> "$GITHUB_STEP_SUMMARY"
+          echo '|---|---|---|' >> "$GITHUB_STEP_SUMMARY"
+
+          for path in / /wp-login.php /wp-json/; do
+            response="$(mktemp)"
+            # Do not send credentials, access admin content, or print response bodies.
+            set +e
+            code="$(curl --silent --show-error --location --max-time 12 --retry 1 \
+              --output "$response" --write-out '%{http_code}' "$base$path")"
+            result=$?
+            set -e
+            fingerprint='not identified'
+
+            if [[ "$path" == '/wp-login.php' ]] && grep -Eiq 'id=["'"'"']loginform|name=["'"'"']log' "$response"; then
+              fingerprint='WordPress login form'
+            elif [[ "$path" == '/wp-json/' ]] && grep -Eq '"namespaces"|"wp/v2"' "$response"; then
+              fingerprint='WordPress REST indicators'
+            elif [[ "$path" == '/' ]] && grep -Eq 'wp-content/|wp-includes/' "$response"; then
+              fingerprint='WordPress assets'
+            fi
+
+            if [[ "$result" -ne 0 ]]; then
+              fingerprint='network/TLS error or inaccessible'
+              code='not reachable'
+            fi
+            echo "| `$path` | $code | $fingerprint |" >> "$GITHUB_STEP_SUMMARY"
+            printf '%s: status=%s, fingerprint=%s\n' "$path" "$code" "$fingerprint"
+            rm -f "$response"
+          done
+
+          echo '' >> "$GITHUB_STEP_SUMMARY"
+          echo 'This is a non-authenticated external probe, not a CMS installation audit or E2E PASS.' >> "$GITHUB_STEP_SUMMARY"
